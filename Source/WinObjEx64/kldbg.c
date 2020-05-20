@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        17 May 2020
+*  DATE:        18 May 2020
 *
 *  MINIMUM SUPPORTED OS WINDOWS 7
 *
@@ -1554,11 +1554,9 @@ BOOL kdFindKiServiceTable(
                 break;
             }
 
-            if (ServiceTable) {
-                RtlCopyMemory(ServiceTable,
-                    &ServiceTableDescriptor[0],
-                    sizeof(KSERVICE_TABLE_DESCRIPTOR));
-            }
+            RtlCopyMemory(ServiceTable,
+                &ServiceTableDescriptor[0],
+                sizeof(KSERVICE_TABLE_DESCRIPTOR));
 
             bResult = TRUE;
 

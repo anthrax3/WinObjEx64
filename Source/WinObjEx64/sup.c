@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        17 May 2020
+*  DATE:        18 May 2020
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -32,12 +32,6 @@ SCMDB g_scmDB;
 // Types collection.
 //
 POBJECT_TYPES_INFORMATION g_pObjectTypesInfo = NULL;
-
-//
-// Dll path for known dlls.
-//
-LPWSTR	g_lpKnownDlls32;
-LPWSTR	g_lpKnownDlls64;
 
 //#define _PROFILE_MEMORY_USAGE_
 
@@ -1475,65 +1469,6 @@ VOID supCreateToolbarButtons(
 }
 
 /*
-* supxQueryKnownDllsLink
-*
-* Purpose:
-*
-* Expand KnownDlls symbolic link.
-*
-* Returns FALSE on any error.
-*
-*/
-BOOL supxQueryKnownDllsLink(
-    _In_ PUNICODE_STRING ObjectName,
-    _In_ PVOID* lpKnownDllsBuffer
-)
-{
-    BOOL                bResult = FALSE;
-    HANDLE              hLink = NULL;
-    SIZE_T              memIO;
-    ULONG               bytesNeeded;
-    NTSTATUS            status;
-    UNICODE_STRING      KnownDlls;
-    OBJECT_ATTRIBUTES   Obja;
-    LPWSTR              lpDataBuffer = NULL;
-
-    do {
-        InitializeObjectAttributes(&Obja, ObjectName, OBJ_CASE_INSENSITIVE, NULL, NULL);
-        status = NtOpenSymbolicLinkObject(&hLink, SYMBOLIC_LINK_QUERY, &Obja);
-        if (!NT_SUCCESS(status))
-            break;
-
-        KnownDlls.Buffer = NULL;
-        KnownDlls.Length = 0;
-        KnownDlls.MaximumLength = 0;
-        bytesNeeded = 0;
-        status = NtQuerySymbolicLinkObject(hLink, &KnownDlls, &bytesNeeded);
-        if ((status != STATUS_BUFFER_TOO_SMALL) || (bytesNeeded == 0))
-            break;
-
-        if (bytesNeeded >= MAX_USTRING) {
-            bytesNeeded = MAX_USTRING - sizeof(UNICODE_NULL);
-        }
-
-        memIO = bytesNeeded + sizeof(UNICODE_NULL);
-        lpDataBuffer = (LPWSTR)supHeapAlloc(memIO);
-        if (lpKnownDllsBuffer) {
-            KnownDlls.Buffer = lpDataBuffer;
-            KnownDlls.Length = (USHORT)bytesNeeded;
-            KnownDlls.MaximumLength = (USHORT)bytesNeeded + sizeof(UNICODE_NULL);
-            bResult = NT_SUCCESS(NtQuerySymbolicLinkObject(hLink, &KnownDlls, NULL));
-            if (bResult) {
-                *lpKnownDllsBuffer = lpDataBuffer;
-            }
-        }
-
-    } while (FALSE);
-    if (hLink != NULL) NtClose(hLink);
-    return bResult;
-}
-
-/*
 * supSetProcessMitigationImagesPolicy
 *
 * Purpose:
@@ -1660,7 +1595,6 @@ VOID supInit(
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 #pragma warning(pop)
 
-    supQueryKnownDlls();
     kdInit(IsFullAdmin);
 
     if (IsFullAdmin) {
@@ -1704,33 +1638,8 @@ VOID supShutdown(
     sapiFreeSnapshot();
 
     if (g_pObjectTypesInfo) supHeapFree(g_pObjectTypesInfo);
-    if (g_lpKnownDlls32) supHeapFree(g_lpKnownDlls32);
-    if (g_lpKnownDlls64) supHeapFree(g_lpKnownDlls64);
 
     SdtFreeGlobals();
-}
-
-/*
-* supQueryKnownDlls
-*
-* Purpose:
-*
-* Expand KnownDlls to global variables.
-*
-*/
-VOID supQueryKnownDlls(
-    VOID
-)
-{
-    UNICODE_STRING KnownDlls;
-
-    g_lpKnownDlls32 = NULL;
-    g_lpKnownDlls64 = NULL;
-
-    RtlInitUnicodeString(&KnownDlls, L"\\KnownDlls32\\KnownDllPath");
-    supxQueryKnownDllsLink(&KnownDlls, (PVOID*)&g_lpKnownDlls32);
-    RtlInitUnicodeString(&KnownDlls, L"\\KnownDlls\\KnownDllPath");
-    supxQueryKnownDllsLink(&KnownDlls, (PVOID*)&g_lpKnownDlls64);
 }
 
 /*
@@ -2918,6 +2827,125 @@ BOOL supQueryDriverDescription(
 }
 
 /*
+* supGetVersionInfoFromSection
+*
+* Purpose:
+*
+* Return RT_VERSION data and size in VERSION.DLL friendly view.
+*
+*/
+BOOL supGetVersionInfoFromSection(
+    _In_ HANDLE SectionHandle,
+    _Out_opt_ PDWORD VersionInfoSize,
+    _Out_ LPVOID* VersionData
+)
+{
+    HANDLE sectionHandle = NULL;
+    VERHEAD* pVerHead;
+    ULONG_PTR idPath[3];
+    PBYTE dataPtr = NULL, dllBase = NULL;
+    PVOID versionPtr = NULL;
+    SIZE_T dllVirtualSize = 0, verSize;
+    ULONG_PTR sizeOfData = 0;
+    NTSTATUS ntStatus;
+    DWORD dwError = ERROR_SUCCESS, dwTemp = 0;
+
+    idPath[0] = (ULONG_PTR)RT_VERSION; //type
+    idPath[1] = 1;                     //id
+    idPath[2] = 0;                     //lang
+
+    if (VersionInfoSize)
+        *VersionInfoSize = 0;
+
+    if (VersionData)
+        *VersionData = NULL;
+
+    __try {
+
+        ntStatus = NtDuplicateObject(NtCurrentProcess(),
+            SectionHandle,
+            NtCurrentProcess(),
+            &sectionHandle,
+            SECTION_MAP_READ,
+            0,
+            0);
+
+        if (!NT_SUCCESS(ntStatus)) {
+            dwError = RtlNtStatusToDosError(ntStatus);
+            __leave;
+        }
+
+        ntStatus = NtMapViewOfSection(sectionHandle, NtCurrentProcess(), (PVOID*)&dllBase,
+            0, 0, NULL, &dllVirtualSize, ViewUnmap, 0, PAGE_READONLY);
+        if (!NT_SUCCESS(ntStatus)) {
+            dwError = RtlNtStatusToDosError(ntStatus);
+            __leave;
+        }
+
+        ntStatus = LdrResSearchResource(dllBase, (ULONG_PTR*)&idPath, 3, 0,
+            (LPVOID*)&dataPtr, (ULONG_PTR*)&sizeOfData, NULL, NULL);
+        if (!NT_SUCCESS(ntStatus)) {
+            dwError = RtlNtStatusToDosError(ntStatus);
+            __leave;
+        }
+
+        pVerHead = (VERHEAD*)dataPtr;
+        if (pVerHead->wTotLen > sizeOfData) {
+            dwError = ERROR_INVALID_DATA;
+            __leave;
+        }
+
+        if (pVerHead->vsf.dwSignature != VS_FFI_SIGNATURE) {
+            dwError = ERROR_INVALID_DATA;
+            __leave;
+        }
+
+        dwTemp = (DWORD)pVerHead->wTotLen;
+        dwTemp = DWORDUP(dwTemp);
+
+        verSize = ((ULONG_PTR)dwTemp * 2) + sizeof(VER2_SIG);
+
+        if (VersionInfoSize)
+            *VersionInfoSize = (DWORD)verSize;
+
+        versionPtr = supHeapAlloc(verSize);
+        if (versionPtr == NULL) {
+            dwError = ERROR_NOT_ENOUGH_MEMORY;
+            __leave;
+        }
+
+        RtlCopyMemory(versionPtr, pVerHead, dwTemp);
+
+        //
+        // Do as GetFileVersionInfo does.
+        //
+        *((PDWORD)((ULONG_PTR)versionPtr + dwTemp)) = VER2_SIG;
+
+        *VersionData = versionPtr;
+
+    }
+    __finally {
+
+        if (AbnormalTermination()) {
+            dwTemp = 0;
+            dwError = ERROR_INVALID_DATA;
+
+            if (versionPtr)
+                supHeapFree(versionPtr);
+        }
+
+        if (dllBase)
+            NtUnmapViewOfSection(NtCurrentProcess(), dllBase);
+
+        if (sectionHandle)
+            NtClose(sectionHandle);
+
+    }
+
+    return (dwTemp != 0);
+}
+
+/*
 * supQuerySectionFileInfo
 *
 * Purpose:
@@ -2937,11 +2965,11 @@ BOOL supQuerySectionFileInfo(
     BOOL                        bResult;
     HANDLE                      hSection;
     PVOID                       vinfo;
-    LPWSTR                      pcValue, lpszFileName, lpszKnownDlls;
+    LPWSTR                      pcValue;
     LPTRANSLATE                 lpTranslate;
     SIZE_T                      cLength = 0;
     NTSTATUS                    status;
-    DWORD                       dwHandle = 0, dwSize, dwInfoSize;
+    DWORD                       dwInfoSize;
     OBJECT_ATTRIBUTES           Obja;
     SECTION_BASIC_INFORMATION   sbi;
     SECTION_IMAGE_INFORMATION   sii;
@@ -2955,9 +2983,7 @@ BOOL supQuerySectionFileInfo(
     }
 
     vinfo = NULL;
-    lpszFileName = NULL;
     hSection = NULL;
-    lpszKnownDlls = NULL;
 
     do {
         //oleaut32.dll does not have FileDescription
@@ -2984,45 +3010,10 @@ BOOL supQuerySectionFileInfo(
         if (!NT_SUCCESS(status))
             break;
 
-        // select proper decoded KnownDlls path
-        if (sii.Machine == IMAGE_FILE_MACHINE_I386) {
-            lpszKnownDlls = g_lpKnownDlls32;
-        }
-        else if (sii.Machine == IMAGE_FILE_MACHINE_AMD64) {
-            lpszKnownDlls = g_lpKnownDlls64;
-        }
-
-        // paranoid
-        if (lpszKnownDlls == NULL) {
-            RtlSecureZeroMemory(szQueryBlock, sizeof(szQueryBlock));
-            _strcpy(szQueryBlock, g_WinObj.szSystemDirectory);
-            lpszKnownDlls = szQueryBlock;
-        }
-
-        // allocate memory buffer to store full filename
-        // KnownDlls + \\ + Object->Name + \0 
-        cLength = (2 + _strlen(lpszKnownDlls) + _strlen(ObjectName->Buffer)) * sizeof(WCHAR);
-        lpszFileName = (LPWSTR)supHeapAlloc(cLength);
-        if (lpszFileName == NULL)
+        if (!supGetVersionInfoFromSection(hSection, NULL, &vinfo))
             break;
 
-        // construct target filepath
-        _strcpy(lpszFileName, lpszKnownDlls);
-        _strcat(lpszFileName, L"\\");
-        _strcat(lpszFileName, ObjectName->Buffer);
-
-        // query size of version info
-        dwSize = GetFileVersionInfoSize(lpszFileName, &dwHandle);
-        if (dwSize == 0)
-            break;
-
-        // allocate memory for version_info structure
-        vinfo = supHeapAlloc(dwSize);
         if (vinfo == NULL)
-            break;
-
-        // query it from file
-        if (!GetFileVersionInfo(lpszFileName, 0, dwSize, vinfo))
             break;
 
         // query codepage and language id info
@@ -3052,7 +3043,6 @@ BOOL supQuerySectionFileInfo(
 
     if (hSection) NtClose(hSection);
     if (vinfo) supHeapFree(vinfo);
-    if (lpszFileName) supHeapFree(lpszFileName);
     return bResult;
 }
 

@@ -4,9 +4,9 @@
 *
 *  TITLE:       SUP.H
 *
-*  VERSION:     1.85
+*  VERSION:     1.86
 *
-*  DATE:        06 Mar 2020
+*  DATE:        18 May 2020
 *
 *  Common header file for the program support routines.
 *
@@ -128,6 +128,25 @@ extern SCMDB g_scmDB;
 extern POBJECT_TYPES_INFORMATION g_pObjectTypesInfo;
 
 #define PathFileExists(lpszPath) (GetFileAttributes(lpszPath) != (DWORD)-1)
+
+typedef struct tagVERBLOCK {
+    WORD wTotLen;
+    WORD wValLen;
+    WORD wType;
+    WCHAR szKey[1];
+} VERBLOCK;
+
+typedef struct tagVERHEAD {
+    WORD wTotLen;
+    WORD wValLen;
+    WORD wType;
+    WCHAR szKey[(sizeof("VS_VERSION_INFO") + 3) & ~3];
+    VS_FIXEDFILEINFO vsf;
+} VERHEAD;
+
+#define VER2_SIG 'X2EF'
+
+#define DWORDUP(x) (((x)+3)&~3)
 
 HTREEITEM supTreeListAddItem(
     _In_ HWND TreeList,
@@ -369,9 +388,6 @@ BOOL sapiCreateSetupDBSnapshot(
     VOID);
 
 VOID sapiFreeSnapshot(
-    VOID);
-
-VOID supQueryKnownDlls(
     VOID);
 
 BOOL supSaveDialogExecute(
@@ -695,3 +711,8 @@ VOID supReportAbnormalTermination(
 VOID supReportException(
     _In_ ULONG ExceptionCode,
     _In_opt_ PEXCEPTION_POINTERS ExceptionPointers);
+
+BOOL supGetVersionInfoFromSection(
+    _In_ HANDLE SectionHandle,
+    _Out_opt_ PDWORD VersionInfoSize,
+    _Out_ LPVOID *VersionData);
