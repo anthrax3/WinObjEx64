@@ -4,9 +4,9 @@
 *
 *  TITLE:       PROPOBJECTDUMPCONSTS.H
 *
-*  VERSION:     1.83
+*  VERSION:     1.86
 *
-*  DATE:        24 Jan 2020
+*  DATE:        24 May 2020
 *
 *  Consts header file for Object Dump module.
 *
@@ -77,7 +77,6 @@
 #define T_MAXIMUMLENGTH             L"MaximumLength"
 #define T_TYPEINDEX                 L"Index"
 #define T_REFNOTFOUND               L"! Reference not found"
-
 
 #define MAX_KNOWN_DRV_FLAGS 8
 static VALUE_DESC drvFlags[MAX_KNOWN_DRV_FLAGS] = {
@@ -314,6 +313,12 @@ static VALUE_DESC fileAlign[MAX_KNOWN_FILEALIGN] = {
     { L"FILE_128_BYTE_ALIGNMENT", FILE_128_BYTE_ALIGNMENT },
     { L"FILE_256_BYTE_ALIGNMENT", FILE_256_BYTE_ALIGNMENT },
     { L"FILE_512_BYTE_ALIGNMENT", FILE_512_BYTE_ALIGNMENT }
+};
+
+#define MAX_KNOWN_OBJ_DIR_FLAGS 2
+static VALUE_DESC objDirFlags[MAX_KNOWN_OBJ_DIR_FLAGS] = {
+    { L"OBJDIR_FLAG_SHADOW_PRESENT", OBJDIR_FLAG_SHADOW_PRESENT },
+    { L"OBJDIR_FLAG_SANDBOX", OBJDIR_FLAG_SANDBOX }
 };
 
 COLORREF CLR_HOOK = 0x80ff80; //light green

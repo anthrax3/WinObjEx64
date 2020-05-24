@@ -4,9 +4,9 @@
 *
 *  TITLE:       GLOBAL.H
 *
-*  VERSION:     1.84
+*  VERSION:     1.86
 *
-*  DATE:        05 Mar 2020
+*  DATE:        22 May 2020
 *
 *  Common header file for the Windows Object Explorer.
 *
@@ -35,6 +35,12 @@
 #pragma warning(disable: 6320) // Exception-filter expression is the constant EXCEPTION_EXECUTE_HANDLER.
 #pragma warning(disable: 6258) // Using TerminateThread does not allow proper thread clean up.
 #pragma warning(disable: 26812) // Prefer 'enum class' over 'enum'
+#pragma warning(disable: 26493) // Don't use C style casts
+
+// C++ meaningless warnings
+#pragma warning(disable: 26446)
+#pragma warning(disable: 26482)
+#pragma warning(disable: 26485)
 
 //
 // Included lib files used by program.

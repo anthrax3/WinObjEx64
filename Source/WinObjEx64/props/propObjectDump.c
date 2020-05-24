@@ -4,9 +4,9 @@
 *
 *  TITLE:       PROPOBJECTDUMP.C
 *
-*  VERSION:     1.85
+*  VERSION:     1.86
 *
-*  DATE:        01 May 2020
+*  DATE:        24 May 2020
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -93,6 +93,9 @@ VOID propObDumpAddress(
             subitems.FontColor = FontColor;
         }
         subitems.Text[1] = lpszDesc;
+    }
+    else {
+        subitems.Text[1] = T_EmptyString;
     }
 
     supTreeListAddItem(
@@ -2005,7 +2008,8 @@ VOID propObDumpDirectoryObject(
     _In_ HWND hwndDlg
 )
 {
-    INT                     i;
+    INT                     i, j;
+    ULONG                   testValue;
     HTREEITEM               h_tviRootItem, h_tviSubItem, h_tviEntry;
     LPWSTR                  lpType;
     OBJECT_DIRECTORY        dirObject;
@@ -2253,8 +2257,64 @@ VOID propObDumpDirectoryObject(
         if (ObjectVersion == 3) {
             propObDumpAddress(g_TreeList, h_tviRootItem, TEXT("SessionObject"), NULL, pCompatDirObject->SessionObject, 0, 0);
         }
+       
+        if (ObjectVersion != 1) {
+            //
+            // List flags.
+            //
+            testValue = pCompatDirObject->Flags;
+            if (testValue) {
 
-        propObDumpUlong(g_TreeList, h_tviRootItem, TEXT("Flags"), NULL, pCompatDirObject->Flags, TRUE, FALSE, 0, 0);
+                RtlSecureZeroMemory(&szValue, sizeof(szValue));
+                RtlSecureZeroMemory(&subitems, sizeof(subitems));
+                j = 0;
+                lpType = NULL;
+                for (i = 0; i < MAX_KNOWN_OBJ_DIR_FLAGS; i++) {
+                    if (testValue & objDirFlags[i].dwValue) {
+                        lpType = objDirFlags[i].lpDescription;
+                        subitems.Count = 2;
+                        //add first entry with name
+                        if (j == 0) {
+                            szValue[0] = L'0';
+                            szValue[1] = L'x';
+                            ultohex(testValue, &szValue[2]);
+
+                            subitems.Text[0] = szValue;
+                            subitems.Text[1] = lpType;
+                        }
+                        else {
+                            //add subentry
+                            subitems.Text[0] = NULL;
+                            subitems.Text[1] = lpType;
+                        }
+
+                        supTreeListAddItem(
+                            g_TreeList,
+                            h_tviRootItem,
+                            TVIF_TEXT | TVIF_STATE,
+                            0,
+                            0,
+                            (j == 0) ? T_FLAGS : T_EmptyString,
+                            & subitems);
+
+                        testValue &= ~objDirFlags[i].dwValue;
+                        j++;
+
+                    }
+                    if (testValue == 0) {
+                        break;
+                    }
+                }
+
+            }
+            else {
+                propObDumpUlong(g_TreeList, h_tviRootItem, TEXT("Flags"), NULL, pCompatDirObject->Flags, TRUE, FALSE, 0, 0);
+            }
+
+        }
+        else {
+            propObDumpUlong(g_TreeList, h_tviRootItem, TEXT("Flags"), NULL, pCompatDirObject->Flags, TRUE, FALSE, 0, 0);
+        }
 
         //
         // SessionId is the last member of OBJECT_DIRECTORY_V3

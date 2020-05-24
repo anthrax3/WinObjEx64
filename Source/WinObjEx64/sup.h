@@ -716,3 +716,7 @@ BOOL supGetVersionInfoFromSection(
     _In_ HANDLE SectionHandle,
     _Out_opt_ PDWORD VersionInfoSize,
     _Out_ LPVOID *VersionData);
+
+VOID supReportAPIError(
+    _In_ LPWSTR FunctionName,
+    _In_ NTSTATUS NtStatus);

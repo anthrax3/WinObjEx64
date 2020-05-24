@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        18 May 2020
+*  DATE:        24 May 2020
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -393,7 +393,7 @@ BOOL supInitTreeListForDump(
     hdritem.cxy = SCALE_DPI_VALUE(130);
     hdritem.pszText = TEXT("Value");
     TreeList_InsertHeaderItem(TreeList, 1, &hdritem);
-    hdritem.cxy = SCALE_DPI_VALUE(200);
+    hdritem.cxy = SCALE_DPI_VALUE(210);
     hdritem.pszText = TEXT("Additional Information");
     TreeList_InsertHeaderItem(TreeList, 2, &hdritem);
 
@@ -2841,14 +2841,14 @@ BOOL supGetVersionInfoFromSection(
 )
 {
     HANDLE sectionHandle = NULL;
-    VERHEAD* pVerHead;
+    VERHEAD* pVerHead = NULL;
     ULONG_PTR idPath[3];
     PBYTE dataPtr = NULL, dllBase = NULL;
     PVOID versionPtr = NULL;
-    SIZE_T dllVirtualSize = 0, verSize;
+    SIZE_T dllVirtualSize = 0, verSize = 0;
     ULONG_PTR sizeOfData = 0;
     NTSTATUS ntStatus;
-    DWORD dwError = ERROR_SUCCESS, dwTemp = 0;
+    DWORD dwTemp = 0;
 
     idPath[0] = (ULONG_PTR)RT_VERSION; //type
     idPath[1] = 1;                     //id
@@ -2859,6 +2859,8 @@ BOOL supGetVersionInfoFromSection(
 
     if (VersionData)
         *VersionData = NULL;
+    else
+        return FALSE; //this param is required
 
     __try {
 
@@ -2871,32 +2873,37 @@ BOOL supGetVersionInfoFromSection(
             0);
 
         if (!NT_SUCCESS(ntStatus)) {
-            dwError = RtlNtStatusToDosError(ntStatus);
+            supReportAPIError(__FUNCTIONW__, ntStatus);
             __leave;
         }
 
         ntStatus = NtMapViewOfSection(sectionHandle, NtCurrentProcess(), (PVOID*)&dllBase,
             0, 0, NULL, &dllVirtualSize, ViewUnmap, 0, PAGE_READONLY);
         if (!NT_SUCCESS(ntStatus)) {
-            dwError = RtlNtStatusToDosError(ntStatus);
+            supReportAPIError(__FUNCTIONW__, ntStatus);
             __leave;
         }
 
         ntStatus = LdrResSearchResource(dllBase, (ULONG_PTR*)&idPath, 3, 0,
             (LPVOID*)&dataPtr, (ULONG_PTR*)&sizeOfData, NULL, NULL);
         if (!NT_SUCCESS(ntStatus)) {
-            dwError = RtlNtStatusToDosError(ntStatus);
+            if ((ntStatus != STATUS_RESOURCE_DATA_NOT_FOUND) &&
+                (ntStatus != STATUS_RESOURCE_TYPE_NOT_FOUND) &&
+                (ntStatus != STATUS_RESOURCE_NAME_NOT_FOUND))
+            {
+                supReportAPIError(__FUNCTIONW__, ntStatus);
+            }
             __leave;
         }
 
         pVerHead = (VERHEAD*)dataPtr;
         if (pVerHead->wTotLen > sizeOfData) {
-            dwError = ERROR_INVALID_DATA;
+            supReportAPIError(__FUNCTIONW__, STATUS_INVALID_BUFFER_SIZE);
             __leave;
         }
 
         if (pVerHead->vsf.dwSignature != VS_FFI_SIGNATURE) {
-            dwError = ERROR_INVALID_DATA;
+            supReportAPIError(__FUNCTIONW__, STATUS_INVALID_IMAGE_FORMAT);
             __leave;
         }
 
@@ -2910,7 +2917,6 @@ BOOL supGetVersionInfoFromSection(
 
         versionPtr = supHeapAlloc(verSize);
         if (versionPtr == NULL) {
-            dwError = ERROR_NOT_ENOUGH_MEMORY;
             __leave;
         }
 
@@ -2927,11 +2933,13 @@ BOOL supGetVersionInfoFromSection(
     __finally {
 
         if (AbnormalTermination()) {
+
             dwTemp = 0;
-            dwError = ERROR_INVALID_DATA;
 
             if (versionPtr)
                 supHeapFree(versionPtr);
+
+            supReportAbnormalTermination(__FUNCTIONW__);
         }
 
         if (dllBase)
@@ -6887,6 +6895,31 @@ VOID supReportException(
             u64tohex(ExceptionPointers->ExceptionRecord->ExceptionInformation[1], _strend(szBuffer));
         }
     }
+
+    logAdd(WOBJ_LOG_ENTRY_ERROR,
+        szBuffer);
+}
+
+/*
+* supReportAPIError
+*
+* Purpose:
+*
+* Log details about failed API call.
+*
+*/
+VOID supReportAPIError(
+    _In_ LPWSTR FunctionName,
+    _In_ NTSTATUS NtStatus
+)
+{
+    WCHAR szBuffer[512];
+
+    RtlStringCchPrintfSecure(szBuffer,
+        512,
+        TEXT("%ws 0x%lX"),
+        FunctionName,
+        NtStatus);
 
     logAdd(WOBJ_LOG_ENTRY_ERROR,
         szBuffer);

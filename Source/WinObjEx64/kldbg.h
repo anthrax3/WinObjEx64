@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        17 May 2020
+*  DATE:        22 May 2020
 *
 *  Common header file for the Kernel Debugger Driver support.
 *
@@ -206,7 +206,7 @@ typedef struct _OBJREF {
 #define NT_WIN10_20H2           19042
 
 // Windows 10 Active Develepment Branch
-#define NTX_WIN10_ADB           19628
+#define NTX_WIN10_ADB           19631
 
 //
 // Defines for boundary descriptors
