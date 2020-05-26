@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        22 May 2020
+*  DATE:        25 May 2020
 *
 *  Common header file for the Windows Object Explorer.
 *
@@ -39,8 +39,11 @@
 
 // C++ meaningless warnings
 #pragma warning(disable: 26446)
+#pragma warning(disable: 26481)
 #pragma warning(disable: 26482)
 #pragma warning(disable: 26485)
+#pragma warning(disable: 26489)
+#pragma warning(disable: 26494)
 
 //
 // Included lib files used by program.

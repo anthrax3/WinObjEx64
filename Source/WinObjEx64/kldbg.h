@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        22 May 2020
+*  DATE:        26 May 2020
 *
 *  Common header file for the Kernel Debugger Driver support.
 *
@@ -289,6 +289,11 @@ UCHAR ObDecodeTypeIndex(
     _In_ PVOID Object,
     _In_ UCHAR EncodedTypeIndex);
 
+PVOID ObDumpDirectoryObjectVersionAware(
+    _In_ ULONG_PTR ObjectAddress,
+    _Out_ PULONG Size,
+    _Out_ PULONG Version);
+
 PVOID ObDumpObjectTypeVersionAware(
     _In_ ULONG_PTR ObjectAddress,
     _Out_ PULONG Size,
@@ -300,6 +305,11 @@ PVOID ObDumpAlpcPortObjectVersionAware(
     _Out_ PULONG Version);
 
 PVOID ObDumpSymbolicLinkObjectVersionAware(
+    _In_ ULONG_PTR ObjectAddress,
+    _Out_ PULONG Size,
+    _Out_ PULONG Version);
+
+PVOID ObDumpDeviceMapVersionAware(
     _In_ ULONG_PTR ObjectAddress,
     _Out_ PULONG Size,
     _Out_ PULONG Version);
