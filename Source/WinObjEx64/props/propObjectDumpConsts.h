@@ -74,6 +74,7 @@
 #define T_OBJECT_TYPE_FLAGS2        L"ObjectTypeFlags2"
 
 #define T_SHADOW_DIRECTORY          L"ShadowDirectory"
+#define T_DEVICEMAP                 L"DeviceMap"
 
 #define T_TIMER_NOTIFICATION        L"NotificationTimer"
 #define T_TIMER_SYNC                L"SynchronizationTimer"

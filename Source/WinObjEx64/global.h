@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        25 May 2020
+*  DATE:        26 May 2020
 *
 *  Common header file for the Windows Object Explorer.
 *
@@ -132,7 +132,6 @@ extern ULONG g_CurrentDPI;
 #define RtlQuickSort rtl_qsort
 
 typedef struct _WINOBJ_GLOBALS {
-    BOOLEAN UseExperimentalFeatures;
     BOOLEAN IsWine;
     BOOLEAN EnableFullMitigations;
     HINSTANCE hInstance;

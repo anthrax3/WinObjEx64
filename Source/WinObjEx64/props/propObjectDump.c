@@ -2150,7 +2150,7 @@ VOID propObDumpDeviceMap(
             TVIF_TEXT | TVIF_STATE,
             0,
             0,
-            TEXT("DeviceMap"),
+            T_DEVICEMAP,
             &subitems);
 
         if (h_tviSubItem) {
@@ -2241,7 +2241,7 @@ VOID propObDumpDeviceMap(
         // Output as is in case of error.
         //
 
-        propObDumpAddress(TreeList, hParent, TEXT("DeviceMap"), T_PDEVICE_MAP,
+        propObDumpAddress(TreeList, hParent, T_DEVICEMAP, T_PDEVICE_MAP,
             (PVOID)DeviceMapAddress, 0, 0);
 
     }

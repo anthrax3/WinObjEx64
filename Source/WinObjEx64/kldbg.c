@@ -942,7 +942,7 @@ PVOID ObDumpObjectTypeVersionAware(
     //assume failure
     if (Size) *Size = 0;
     if (Version) *Version = 0;
-    if (ObjectAddress == 0)
+    if (ObjectAddress < g_kdctx.SystemRangeStart)
         return NULL;
 
     switch (g_NtBuildNumber) {
@@ -997,7 +997,7 @@ PVOID ObDumpAlpcPortObjectVersionAware(
     //assume failure
     if (Size) *Size = 0;
     if (Version) *Version = 0;
-    if (ObjectAddress == 0)
+    if (ObjectAddress < g_kdctx.SystemRangeStart)
         return NULL;
 
     switch (g_NtBuildNumber) {
@@ -1049,7 +1049,7 @@ PVOID ObDumpDirectoryObjectVersionAware(
     //assume failure
     if (Size) *Size = 0;
     if (Version) *Version = 0;
-    if (ObjectAddress == 0)
+    if (ObjectAddress < g_kdctx.SystemRangeStart)
         return NULL;
 
     switch (g_NtBuildNumber) {
@@ -1104,7 +1104,7 @@ PVOID ObDumpSymbolicLinkObjectVersionAware(
     //assume failure
     if (Size) *Size = 0;
     if (Version) *Version = 0;
-    if (ObjectAddress == 0)
+    if (ObjectAddress < g_kdctx.SystemRangeStart)
         return NULL;
 
     switch (g_NtBuildNumber) {
@@ -1160,7 +1160,7 @@ PVOID ObDumpDeviceMapVersionAware(
     if (Size) *Size = 0;
     if (Version) *Version = 0;
 
-    if (ObjectAddress == 0)
+    if (ObjectAddress < g_kdctx.SystemRangeStart)
         return NULL;
 
     switch (g_NtBuildNumber) {
@@ -1175,7 +1175,7 @@ PVOID ObDumpDeviceMapVersionAware(
         break;
     case NT_WIN10_REDSTONE1:
     default:
-        ObjectSize = sizeof(OBJECT_TYPE_8);
+        ObjectSize = sizeof(DEVICE_MAP_V2);
         ObjectVersion = 2;
         break;
     }

@@ -540,9 +540,6 @@
     <Image Include="rsrc\mailslot.ico" />
     <Image Include="rsrc\pipe.ico" />
   </ItemGroup>
-  <ItemGroup>
-    <MASM Include="..\Shared\ntuser\StubNtUserOpenWindowStation.asm" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />

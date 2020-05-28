@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        24 May 2020
+*  DATE:        26 May 2020
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -1203,8 +1203,6 @@ VOID supRunAsAdmin(
         shinfo.lpFile = szPath;
         shinfo.lpDirectory = g_WinObj.szProgramDirectory;
         shinfo.nShow = SW_SHOW;
-        if (g_WinObj.UseExperimentalFeatures)
-            shinfo.lpParameters = TEXT("-exp");
         if (ShellExecuteEx(&shinfo)) {
             PostQuitMessage(0);
         }
@@ -3701,68 +3699,6 @@ HWINSTA supOpenWindowStationFromContext(
 }
 
 /*
-* supOpenWindowStationFromContextEx
-*
-* Purpose:
-*
-* Open Window station bypass session check.
-*
-*/
-HWINSTA supOpenWindowStationFromContextEx(
-    _In_ PROP_OBJECT_INFO* Context,
-    _In_ BOOL fInherit,
-    _In_ ACCESS_MASK dwDesiredAccess)
-{
-    NTSTATUS Status = STATUS_UNSUCCESSFUL;
-    HWINSTA hObject = NULL;
-    HANDLE hRootDirectory = NULL;
-    UNICODE_STRING CurrentWinstaDir;
-    UNICODE_STRING WinstaDir;
-    UNICODE_STRING WinstaName;
-    OBJECT_ATTRIBUTES obja;
-
-    if (supxGetWindowStationName(&CurrentWinstaDir)) {
-
-        //
-        // Same session, open as usual.
-        //
-        RtlInitUnicodeString(&WinstaDir, Context->lpCurrentObjectPath);
-        if (RtlEqualUnicodeString(&WinstaDir, &CurrentWinstaDir, TRUE)) {
-            hObject = OpenWindowStation(Context->lpObjectName, fInherit, dwDesiredAccess);
-            if (hObject)
-                Status = STATUS_SUCCESS;
-        }
-        else {
-
-            //
-            // Different session, use NtUserOpenWindowStation (doesn't work in Windows 10).
-            //
-            InitializeObjectAttributes(&obja, &WinstaDir, OBJ_CASE_INSENSITIVE, NULL, NULL);
-            Status = NtOpenDirectoryObject(&hRootDirectory,
-                DIRECTORY_TRAVERSE,
-                &obja);
-
-            if (NT_SUCCESS(Status)) {
-
-                RtlInitUnicodeString(&WinstaName, Context->lpObjectName);
-                InitializeObjectAttributes(&obja, &WinstaName, OBJ_CASE_INSENSITIVE, hRootDirectory, NULL);
-
-                if (fInherit)
-                    obja.Attributes |= OBJ_INHERIT;
-
-                hObject = g_ExtApiSet.NtUserOpenWindowStation(&obja, dwDesiredAccess);
-
-                Status = RtlGetLastNtStatus();
-                NtClose(hRootDirectory);
-            }
-        }
-        RtlFreeUnicodeString(&CurrentWinstaDir);
-    }
-    SetLastError(RtlNtStatusToDosErrorNoTeb(Status));
-    return hObject;
-}
-
-/*
 * supQueryObjectTrustLabel
 *
 * Purpose:
@@ -4285,7 +4221,7 @@ BOOL supRunAsLocalSystem(
         bSuccess = CreateProcessAsUser(
             hPrimaryToken,
             szApplication,
-            g_WinObj.UseExperimentalFeatures ? GetCommandLine() : NULL,
+            NULL,
             NULL,
             NULL,
             FALSE,
@@ -5020,12 +4956,7 @@ BOOL supCloseObjectFromContext(
 
         switch (Context->TypeIndex) {
         case ObjectTypeWinstation:
-            if (g_WinObj.UseExperimentalFeatures) {
-                bResult = NT_SUCCESS(NtClose(hObject));
-            }
-            else {
-                bResult = CloseWindowStation((HWINSTA)hObject);
-            }
+            bResult = CloseWindowStation((HWINSTA)hObject);
             break;
         case ObjectTypeDesktop:
             bResult = CloseDesktop((HDESK)hObject);
