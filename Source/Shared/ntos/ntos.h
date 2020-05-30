@@ -5,9 +5,9 @@
 *
 *  TITLE:       NTOS.H
 *
-*  VERSION:     1.137
+*  VERSION:     1.138
 *
-*  DATE:        26 May 2020
+*  DATE:        29 May 2020
 *
 *  Common header file for the ntos API functions and definitions.
 *
@@ -938,6 +938,8 @@ typedef enum _PROCESSINFOCLASS {
     ProcessLeapSecondInformation = 97,
     ProcessFiberShadowStackAllocation = 98,
     ProcessFreeFiberShadowStackAllocation = 99,
+    ProcessAltSystemCallInformation = 100,
+    ProcessDynamicEHContinuationTargets = 101,
     MaxProcessInfoClass
 } PROCESSINFOCLASS;
 
@@ -2533,15 +2535,29 @@ typedef struct _KSERVICE_TABLE_DESCRIPTOR {
 
 // Size=20
 typedef struct _SYSTEM_BOOT_ENVIRONMENT_INFORMATION_V1 {
-    struct _GUID BootIdentifier;
-    enum _FIRMWARE_TYPE FirmwareType;
+    GUID BootIdentifier;
+    FIRMWARE_TYPE FirmwareType;
 } SYSTEM_BOOT_ENVIRONMENT_INFORMATION_V1, *PSYSTEM_BOOT_ENVIRONMENT_INFORMATION_V1;
 
 // Size=32
 typedef struct _SYSTEM_BOOT_ENVIRONMENT_INFORMATION {
-    struct _GUID BootIdentifier;
-    enum _FIRMWARE_TYPE FirmwareType;
-    unsigned __int64 BootFlags;
+    GUID BootIdentifier;
+    FIRMWARE_TYPE FirmwareType;
+    union
+    {
+        ULONGLONG BootFlags;
+        struct
+        {
+            ULONGLONG DbgMenuOsSelection : 1; // RS4
+            ULONGLONG DbgHiberBoot : 1;
+            ULONGLONG DbgSoftBoot : 1;
+            ULONGLONG DbgMeasuredLaunch : 1;
+            ULONGLONG DbgMeasuredLaunchCapable : 1; // 19H1
+            ULONGLONG DbgSystemHiveReplace : 1;
+            ULONGLONG DbgMeasuredLaunchSmmProtections : 1;
+            ULONGLONG DbgMeasuredLaunchSmmLevel : 7; // 20H1
+        };
+    };
 } SYSTEM_BOOT_ENVIRONMENT_INFORMATION, *PSYSTEM_BOOT_ENVIRONMENT_INFORMATION;
 
 /*
@@ -5254,6 +5270,7 @@ __inline struct _PEB * NtCurrentPeb() { return NtCurrentTeb()->ProcessEnvironmen
 #define ProcessPayloadRestrictionPolicy     12
 #define ProcessChildProcessPolicy           13
 #define ProcessSideChannelIsolationPolicy   14
+#define ProcessUserShadowStackPolicy        15
 
 typedef struct tagPROCESS_MITIGATION_BINARY_SIGNATURE_POLICY_W10 {
     union {
@@ -5386,6 +5403,16 @@ typedef struct _PROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY_W10 {
     } DUMMYUNIONNAME;
 } PROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY_W10, *PPROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY_W10;
 
+typedef struct _PROCESS_MITIGATION_USER_SHADOW_STACK_POLICY_W10 {
+    union {
+        DWORD Flags;
+        struct {
+            DWORD EnableUserShadowStack : 1;
+            DWORD ReservedFlags : 31;
+        } DUMMYSTRUCTNAME;
+    } DUMMYUNIONNAME;
+} PROCESS_MITIGATION_USER_SHADOW_STACK_POLICY_W10, * PPROCESS_MITIGATION_USER_SHADOW_STACK_POLICY_W10;
+
 typedef struct _PROCESS_MITIGATION_POLICY_INFORMATION {
     PROCESS_MITIGATION_POLICY Policy;
     union
@@ -5403,6 +5430,7 @@ typedef struct _PROCESS_MITIGATION_POLICY_INFORMATION {
         PROCESS_MITIGATION_PAYLOAD_RESTRICTION_POLICY_W10 PayloadRestrictionPolicy;
         PROCESS_MITIGATION_CHILD_PROCESS_POLICY_W10 ChildProcessPolicy;
         PROCESS_MITIGATION_SIDE_CHANNEL_ISOLATION_POLICY_W10 SideChannelIsolationPolicy;
+        PROCESS_MITIGATION_USER_SHADOW_STACK_POLICY_W10 UserShadowStackPolicy;
     };
 } PROCESS_MITIGATION_POLICY_INFORMATION, *PPROCESS_MITIGATION_POLICY_INFORMATION;
 
@@ -9227,7 +9255,7 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 NtClose(
-    _In_ HANDLE Handle);
+    _In_ _Post_ptr_invalid_ HANDLE Handle);
 
 NTSYSAPI
 NTSTATUS
@@ -9911,7 +9939,7 @@ NtCreateSectionEx(
     _In_ ULONG SectionPageProtection,
     _In_ ULONG AllocationAttributes,
     _In_opt_ HANDLE FileHandle,
-    _In_ PMEM_EXTENDED_PARAMETER ExtendedParameters,
+    _Inout_updates_opt_(ExtendedParameterCount) PMEM_EXTENDED_PARAMETER ExtendedParameters,
     _In_ ULONG ExtendedParameterCount);
 
 NTSYSAPI
@@ -10223,7 +10251,7 @@ NTAPI
 NtDuplicateToken(
     _In_ HANDLE ExistingTokenHandle,
     _In_ ACCESS_MASK DesiredAccess,
-    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_opt_ POBJECT_ATTRIBUTES ObjectAttributes,
     _In_ BOOLEAN EffectiveOnly,
     _In_ TOKEN_TYPE TokenType,
     _Out_ PHANDLE NewTokenHandle);
@@ -10256,7 +10284,7 @@ NTAPI
 NtQueryInformationToken(
     _In_ HANDLE TokenHandle,
     _In_ TOKEN_INFORMATION_CLASS TokenInformationClass,
-    _Out_writes_bytes_(TokenInformationLength) PVOID TokenInformation,
+    _Out_writes_bytes_to_opt_(TokenInformationLength, *ReturnLength) PVOID TokenInformation,
     _In_ ULONG TokenInformationLength,
     _Out_ PULONG ReturnLength);
 
@@ -10770,6 +10798,11 @@ NtTerminateJobObject(
 * Session API.
 *
 ************************************************************************************/
+
+typedef struct _SESSION_OBJECT {
+    KEVENT Event;
+    PVOID SessionGlobal; //MM_SESSION_SPACE ptr
+} SESSION_OBJECT, * PSESSION_OBJECT;
 
 //taken from ph2
 

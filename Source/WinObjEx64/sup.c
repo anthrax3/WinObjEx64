@@ -6,7 +6,7 @@
 *
 *  VERSION:     1.86
 *
-*  DATE:        26 May 2020
+*  DATE:        27 May 2020
 *
 * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
 * ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED
@@ -3683,7 +3683,7 @@ HWINSTA supOpenWindowStationFromContext(
     UNICODE_STRING CurrentWinstaDir;
     UNICODE_STRING WinstaDir;
 
-    DWORD LastError = ERROR_SUCCESS;
+    DWORD LastError = ERROR_ACCESS_DENIED;
 
     if (supxGetWindowStationName(&CurrentWinstaDir)) {
         RtlInitUnicodeString(&WinstaDir, Context->lpCurrentObjectPath);
